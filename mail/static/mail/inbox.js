@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelector('#compose').addEventListener('click', compose_email);
 
     load_mailbox('inbox');
+    return false;
 });
 
 function compose_email() {
@@ -33,7 +34,8 @@ function compose_email() {
     });
 
     // functionality for submit button
-    submit_button.addEventListener('click', () => {
+    document.querySelector('#compose-form').onsubmit = (e) => {
+        e.preventDefault();
         fetch('/emails', {
             method: 'POST',
             body: JSON.stringify({
@@ -46,19 +48,20 @@ function compose_email() {
             .then(result => {
                 // Print result
                 console.log(result);
+                //stop the default behaviour
+                e.preventDefault();
             });
         //redirect user to sent box
         load_mailbox('sent');
-        return false;
-    })
+    }
 
 
     // Clear out composition fields
     document.querySelector('#compose-recipients').value = '';
     document.querySelector('#compose-subject').value = '';
     document.querySelector('#compose-body').value = '';
-    //stop the default behaviour
-    return false;
+
+    //end of compose function
 }
 
 function load_mailbox(mailbox) {
@@ -66,6 +69,7 @@ function load_mailbox(mailbox) {
     // Show the mailbox and hide other views
     document.querySelector('#emails-view').style.display = 'block';
     document.querySelector('#compose-view').style.display = 'none';
+    document.getElementById('show-email').style.display = 'none';
 
     // Show the mailbox name
     document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
@@ -75,37 +79,118 @@ function load_mailbox(mailbox) {
     //check if it's read
     function check(read) {
         if (read) {
-            return 'white'
+            return 'white';
         } else {
-            return '#c3c3c3'
+            return '#c3c3c3';
         }
     }
 
+    //show email function
+    function show_email(email_id) {
+        fetch(`emails/${email_id}`).then(response => response.json()).then(
+            email => {
+                //check archive state
+                function is_archived(email_archive) {
+                    if (!email_archive) {
+                        return 'archive'
+                    } else {
+                        return ' unarchive email'
+                    }
+                }
+
+                //clear the area
+                document.querySelector('#emails-view').style.display = 'none';
+                document.querySelector('#compose-view').style.display = 'none';
+                document.querySelector('#show-email').style.display = 'block'
+                //make email read
+                fetch(`/emails/${email.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        read: true,
+                    })
+                }).then(() => {
+                    console.log(email.read)
+                })
+                // make the email details visible
+                let view = document.getElementById('show-email');
+                view.innerHTML = `
+                <h2>Sender : ${email.sender}</h2>
+                <div class="p-3 border bg-light" style="font-size: 14pt;padding: 10px">
+                <h4 style="">Subject :${email.subject}</h4>
+                <div style="color: grey;font-size: 12pt">Date : ${email.timestamp}</div>
+                <div>Recipients : ${email.recipients}<br/></div>
+                <p style="padding-top:50px ">Descrption:<br/>${email.body}</p>
+                <button id="archive" class="btn btn-secondary">${is_archived(email.archived)}</button>
+                  </div>`;
+                // archive button func
+                document.getElementById('archive').addEventListener('click', () => {
+                    fetch(`/emails/${email.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            archived: !email.archived
+                        })
+                    }).then((e) => {
+                        window.alert(`${email.subject} moved to ${email.archived ? 'inbox' : 'archive'}`)
+                        document.location.reload(true);
+                    })
+                });
+            }
+        );
+    }
+
     //if the mailbox is inbox show only inbox
-    if (mailbox === 'inbox') {
-        fetch('/emails/inbox')
-            .then(response => response.json())
-            .then(emails => {
-                emails.forEach((e) => {
+
+    fetch(`/emails/${mailbox}`, {method: 'GET'})
+        .then(response => response.json())
+        .then(emails => {
+
+            emails.forEach((e) => {
                     //mail dict
                     let mail = e;
-                    e['recipients'].forEach((rec) => {
+                    if (mailbox.toLowerCase() === 'sent' &&mail.sender===username) {
+                        document.querySelector("#emails-view").innerHTML +=
+                            `<div class="emails-button" style="text-decoration: none">
+                    <div style="padding: 10px;display: flex;align-items: baseline;justify-content: space-between;border:1px black solid;align-content: space-between; background: ${check(mail.read)} " >
+                        <div style="font-weight: bold">${mail.recipients}</div>
+                        <div>${mail.subject}</div>
+                        <div>${mail.timestamp}</div>
+                    </div>
+                </div>`;
+                        //add listener to the div to see if clicked
+                        document.querySelector('.emails-button').addEventListener('click', () => {
+                            show_email(mail.id)
+                        });
+                        document.querySelector('.emails-button').addEventListener('mouseover', (div) => {
+                            div.target.style.cursor = 'pointer'
+                        })
+                    } else {
+                        e['recipients'].forEach((rec) => {
 
-                        if (rec === username && !mail.read) {
-                            console.log(mail.read)
-
-                            document.querySelector("#emails-view").innerHTML +=
-                `<a style="text-decoration: none">
+                            if (rec === username) {
+                                document.querySelector("#emails-view").innerHTML +=
+                                    `<div class="emails-button" style="text-decoration: none">
                     <div style="padding: 10px;display: flex;align-items: baseline;justify-content: space-between;border:1px black solid;align-content: space-between; background: ${check(mail.read)} " >
                         <div style="font-weight: bold">${mail.sender}</div>
                         <div>${mail.subject}</div>
                         <div>${mail.timestamp}</div>
                     </div>
-                </a>`
+                </div>`;
+                                //add listener to the div to see if clicked
+                                document.querySelector('.emails-button').addEventListener('click', () => {
+                                    show_email(mail.id)
+                                });
+                                document.querySelector('.emails-button').addEventListener('mouseover', (div) => {
+                                    div.target.style.cursor = 'pointer'
+                                })
+                                //check if sent box
+                                console.log(emails.snder)
                             }
+                        })
 
-                    })
-                })
-            });
-    }
+                    }
+                }
+            )
+        });
+
+
 }
