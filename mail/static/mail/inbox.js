@@ -5,13 +5,13 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelector('#inbox').addEventListener('click', () => load_mailbox('inbox'));
     document.querySelector('#sent').addEventListener('click', () => load_mailbox('sent'));
     document.querySelector('#archived').addEventListener('click', () => load_mailbox('archive'));
-    document.querySelector('#compose').addEventListener('click',()=> compose_email('','',false));
+    document.querySelector('#compose').addEventListener('click', () => compose_email('', '', false));
 
     load_mailbox('inbox');
     return false;
 });
 
-function compose_email(int_sub,init_send,redirect) {
+function compose_email(init_send,init_date,init_body, redirect) {
 
     // Show compose view and hide other views
     document.querySelector('#emails-view').style.display = 'none';
@@ -35,13 +35,11 @@ function compose_email(int_sub,init_send,redirect) {
     });
 //check if redirected from replay
     if (redirect) {
-        console.log(init_send);
+
         recipients.value = `${init_send}`;
-        if (int_sub.match.toString().toLowerCase() === 'Re: '.toLowerCase()) {
-            subject.value = int_sub;
-        } else {
-            subject.value = 'Re: ' + int_sub;
-        }
+        subject.value = 'Re: ' + init_send;
+        body.value=`On ${init_date} ${init_send} wrote: ${init_body}`
+
     }
 
     // functionality for submit button
@@ -68,10 +66,12 @@ function compose_email(int_sub,init_send,redirect) {
 
 
     // Clear out composition fields
-    document.querySelector('#compose-recipients').value = '';
-    document.querySelector('#compose-subject').value = '';
-    document.querySelector('#compose-body').value = '';
+    if (!redirect) {
 
+        document.querySelector('#compose-recipients').value = '';
+        document.querySelector('#compose-subject').value = '';
+        document.querySelector('#compose-body').value = '';
+    }
     //end of compose function
 }
 
@@ -97,7 +97,7 @@ function load_mailbox(mailbox) {
     }
 
     //show email function
-    function show_email(email_id,mailbox) {
+    function show_email(email_id, mailbox) {
         fetch(`emails/${email_id}`).then(response => response.json()).then(
             email => {
                 //check archive state
@@ -108,11 +108,11 @@ function load_mailbox(mailbox) {
                         return ' unarchive email'
                     }
                 }
-                function add_sent(mailbox){
-                    if (mailbox.toLowerCase()==='inbox'||mailbox.toLowerCase==='archived'){
-                        return'<button class="btn btn-dark" id="replay">replay</button>';
-                    }
-                    else{
+
+                function add_sent(mailbox) {
+                    if (mailbox.toLowerCase() === 'inbox' || mailbox.toLowerCase === 'archived') {
+                        return '<button class="btn btn-dark" id="replay">replay</button>';
+                    } else {
                         return '';
                     }
                 }
@@ -149,14 +149,14 @@ function load_mailbox(mailbox) {
                         body: JSON.stringify({
                             archived: !email.archived
                         })
-                    }).then((e) => {
+                    }).then(() => {
                         window.alert(`${email.subject} moved to ${email.archived ? 'inbox' : 'archive'}`)
-                        document.location.reload(true);
+                        document.location.reload();
                     })
                 });
                 //replay button func
-                document.getElementById('replay').addEventListener('click',()=>{
-                    compose_email(email.subject,email.sender,true)
+                document.getElementById('replay').addEventListener('click', () => {
+                    compose_email(email.sender,email.timestamp,email.body, true)
                 })
             }
         );
@@ -169,7 +169,7 @@ function load_mailbox(mailbox) {
             emails.forEach((e) => {
                     //mail dict
                     let mail = e;
-                    if (mailbox.toLowerCase() === 'sent' &&mail.sender===username) {
+                    if (mailbox.toLowerCase() === 'sent' && mail.sender === username) {
                         document.querySelector("#emails-view").innerHTML +=
                             `<div class="emails-button" style="text-decoration: none">
                     <div style="padding: 10px;display: flex;align-items: baseline;justify-content: space-between;border:1px black solid;align-content: space-between; background: ${check(mail.read)} " >
@@ -180,7 +180,7 @@ function load_mailbox(mailbox) {
                 </div>`;
                         //add listener to the div to see if clicked
                         document.querySelector('.emails-button').addEventListener('click', () => {
-                            show_email(mail.id,mailbox)
+                            show_email(mail.id, mailbox)
                         });
                         document.querySelector('.emails-button').addEventListener('mouseover', (div) => {
                             div.target.style.cursor = 'pointer'
@@ -199,7 +199,7 @@ function load_mailbox(mailbox) {
                 </div>`;
                                 //add listener to the div to see if clicked
                                 document.querySelector('.emails-button').addEventListener('click', () => {
-                                    show_email(mail.id,mailbox);
+                                    show_email(mail.id, mailbox);
 
                                 });
                                 document.querySelector('.emails-button').addEventListener('mouseover', (div) => {
